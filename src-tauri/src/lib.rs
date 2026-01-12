@@ -12,6 +12,7 @@ use tauri::{WebviewUrl, WebviewWindowBuilder};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::process::{Child, ChildStdin, Command};
 use tokio::sync::{Mutex, oneshot};
+use tokio::time::{timeout, Duration};
 use uuid::Uuid;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -216,11 +217,24 @@ fn build_codex_command(entry: &WorkspaceEntry) -> Command {
         .filter(|value| !value.trim().is_empty())
         .unwrap_or_else(|| "codex".into());
     let mut command = Command::new(bin);
+    // Cargo sets DYLD_* vars in dev runs on macOS so that the current binary can
+    // locate its dependent dylibs. Those variables leak into child processes and
+    // can break unrelated binaries (like `codex`) by forcing them to load the
+    // wrong libraries. Strip them for the app-server child process.
+    command.env_remove("DYLD_LIBRARY_PATH");
+    command.env_remove("DYLD_FALLBACK_LIBRARY_PATH");
+    command.env_remove("DYLD_FRAMEWORK_PATH");
+    command.env_remove("DYLD_FALLBACK_FRAMEWORK_PATH");
+    command.env_remove("DYLD_INSERT_LIBRARIES");
     if default_bin {
         let mut paths: Vec<String> = env::var("PATH")
             .unwrap_or_default()
             .split(':')
             .filter(|value| !value.is_empty())
+            // `npm run` prepends a bunch of `node_modules/.bin` folders, which can
+            // accidentally shadow the real `codex` install with an unrelated
+            // script. We want the system `codex` binary here.
+            .filter(|value| !value.contains("node_modules/.bin"))
             .map(|value| value.to_string())
             .collect();
         let mut extras = vec![
@@ -254,6 +268,12 @@ async fn spawn_workspace_session(
     entry: WorkspaceEntry,
     app_handle: AppHandle,
 ) -> Result<Arc<WorkspaceSession>, String> {
+    if cfg!(debug_assertions) {
+        eprintln!(
+            "[codex-monitor] spawning codex app-server workspace_id={} path={}",
+            entry.id, entry.path
+        );
+    }
     let mut command = build_codex_command(&entry);
     command.arg("app-server");
     command.stdin(std::process::Stdio::piped());
@@ -323,6 +343,26 @@ async fn spawn_workspace_session(
                 let _ = app_handle_clone.emit("app-server-event", payload);
             }
         }
+
+        if cfg!(debug_assertions) {
+            eprintln!("[codex-monitor] app-server stdout closed workspace_id={workspace_id}");
+        }
+        if cfg!(debug_assertions) {
+            let status = {
+                let mut child = session_clone.child.lock().await;
+                child
+                    .try_wait()
+                    .ok()
+                    .flatten()
+                    .map(|value| value.to_string())
+            };
+            if let Some(status) = status {
+                eprintln!(
+                    "[codex-monitor] app-server exit status workspace_id={workspace_id} {status}"
+                );
+            }
+        }
+        session_clone.pending.lock().await.clear();
     });
 
     let workspace_id = entry.id.clone();
@@ -332,6 +372,9 @@ async fn spawn_workspace_session(
         while let Ok(Some(line)) = lines.next_line().await {
             if line.trim().is_empty() {
                 continue;
+            }
+            if cfg!(debug_assertions) {
+                eprintln!("[codex-monitor] app-server stderr workspace_id={workspace_id} {line}");
             }
             let payload = AppServerEvent {
                 workspace_id: workspace_id.clone(),
@@ -351,7 +394,22 @@ async fn spawn_workspace_session(
             "version": "0.1.0"
         }
     });
-    session.send_request("initialize", init_params).await?;
+    match timeout(Duration::from_secs(5), session.send_request("initialize", init_params)).await {
+        Ok(result) => {
+            result?;
+        }
+        Err(_) => {
+            if cfg!(debug_assertions) {
+                eprintln!(
+                    "[codex-monitor] app-server initialize timed out workspace_id={}",
+                    entry.id
+                );
+            }
+            let mut child = session.child.lock().await;
+            let _ = child.kill().await;
+            return Err("codex app-server initialize timed out".to_string());
+        }
+    }
     session.send_notification("initialized", None).await?;
 
     let payload = AppServerEvent {
@@ -368,6 +426,9 @@ async fn spawn_workspace_session(
 
 #[tauri::command]
 async fn list_workspaces(state: State<'_, AppState>) -> Result<Vec<WorkspaceInfo>, String> {
+    if cfg!(debug_assertions) {
+        eprintln!("[codex-monitor] list_workspaces");
+    }
     let workspaces = state.workspaces.lock().await;
     let sessions = state.sessions.lock().await;
     let mut result = Vec::new();
@@ -392,6 +453,9 @@ async fn add_workspace(
     state: State<'_, AppState>,
     app: AppHandle,
 ) -> Result<WorkspaceInfo, String> {
+    if cfg!(debug_assertions) {
+        eprintln!("[codex-monitor] add_workspace path={path}");
+    }
     let name = PathBuf::from(&path)
         .file_name()
         .and_then(|s| s.to_str())
@@ -405,7 +469,14 @@ async fn add_workspace(
         settings: WorkspaceSettings::default(),
     };
 
-    let session = spawn_workspace_session(entry.clone(), app).await?;
+    let session = spawn_workspace_session(entry.clone(), app.clone())
+        .await
+        .map_err(|error| {
+            if cfg!(debug_assertions) {
+                eprintln!("[codex-monitor] add_workspace spawn failed: {error}");
+            }
+            error
+        })?;
     {
         let mut workspaces = state.workspaces.lock().await;
         workspaces.insert(entry.id.clone(), entry.clone());
