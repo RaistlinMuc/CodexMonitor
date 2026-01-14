@@ -214,7 +214,8 @@ export const Messages = memo(function Messages({
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
   const [elapsedMs, setElapsedMs] = useState(0);
-  const scrollKey = scrollKeyForItems(items);
+  const baseScrollKey = scrollKeyForItems(items);
+  const scrollKey = threadId ? `${threadId}-${baseScrollKey}` : baseScrollKey;
   const toggleExpanded = (id: string) => {
     setExpandedItems((prev) => {
       const next = new Set(prev);
@@ -228,6 +229,10 @@ export const Messages = memo(function Messages({
   };
 
   const visibleItems = items;
+
+  useEffect(() => {
+    setExpandedItems(new Set());
+  }, [threadId]);
 
   useEffect(() => {
     if (!bottomRef.current) {

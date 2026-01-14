@@ -505,7 +505,8 @@ export function Sidebar({
                                   ? worktreeThreads
                                   : worktreeThreads.slice(0, 3)
                                 ).map((thread) => (
-                                  <div
+                                  <button
+                                    type="button"
                                     key={thread.id}
                                     className={`thread-row ${
                                       worktree.id === activeWorkspaceId &&
@@ -522,17 +523,6 @@ export function Sidebar({
                                             showThreadMenu(event, worktree.id, thread.id)
                                         : undefined
                                     }
-                                    role="button"
-                                    tabIndex={0}
-                                    onKeyDown={(event) => {
-                                      if (
-                                        event.key === "Enter" ||
-                                        event.key === " "
-                                      ) {
-                                        event.preventDefault();
-                                        onSelectThread(worktree.id, thread.id);
-                                      }
-                                    }}
                                   >
                                     <span
                                       className={`thread-status ${
@@ -565,7 +555,7 @@ export function Sidebar({
                                         ...
                                       </button>
                                     </div>
-                                  </div>
+                                  </button>
                                 ))}
                                 {worktreeThreads.length > 3 && (
                                   <button
@@ -612,7 +602,8 @@ export function Sidebar({
                       ? threads
                       : threads.slice(0, 3)
                     ).map((thread) => (
-                      <div
+                      <button
+                        type="button"
                         key={thread.id}
                         className={`thread-row ${
                           entry.id === activeWorkspaceId &&
@@ -626,14 +617,6 @@ export function Sidebar({
                             ? (event) => showThreadMenu(event, entry.id, thread.id)
                             : undefined
                         }
-                        role="button"
-                        tabIndex={0}
-                        onKeyDown={(event) => {
-                          if (event.key === "Enter" || event.key === " ") {
-                            event.preventDefault();
-                            onSelectThread(entry.id, thread.id);
-                          }
-                        }}
                       >
                         <span
                           className={`thread-status ${
@@ -660,7 +643,7 @@ export function Sidebar({
                             ...
                           </button>
                         </div>
-                      </div>
+                      </button>
                     ))}
                     {threads.length > 3 && (
                       <button
