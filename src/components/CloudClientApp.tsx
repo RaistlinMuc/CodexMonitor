@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Settings } from "lucide-react";
-import type { ConversationItem, WorkspaceInfo } from "../types";
+import type { ConversationItem, ThreadSummary, WorkspaceInfo } from "../types";
 import {
   cloudkitStatus,
   cloudkitTest,
@@ -18,12 +17,19 @@ import {
   type CloudThreadSnapshot,
   type CloudWorkspaceSnapshot,
 } from "../cloud/cloudTypes";
+import { Sidebar } from "./Sidebar";
+import { Home } from "./Home";
+import { MainHeader } from "./MainHeader";
 import { Messages } from "./Messages";
+import { Composer } from "./Composer";
 import { TabBar } from "./TabBar";
+import { TabletNav } from "./TabletNav";
 import { SettingsView } from "./SettingsView";
 import { useAppSettings } from "../hooks/useAppSettings";
 import { buildItemsFromThread } from "../threads/threadItems";
 import { e2eMark, e2eQuit } from "../services/tauri";
+import { useResizablePanels } from "../hooks/useResizablePanels";
+import { useLayoutMode } from "../hooks/useLayoutMode";
 
 function ensureClientId() {
   try {
@@ -54,26 +60,102 @@ export function CloudClientApp() {
   const { settings: appSettings, saveSettings, doctor } = useAppSettings();
   // iOS/iPadOS build: always operate in Cloud mode.
   const cloudEnabled = true;
+  const {
+    sidebarWidth,
+    onSidebarResizeStart,
+  } = useResizablePanels();
+  const layoutMode = useLayoutMode();
+  const isCompact = layoutMode !== "desktop";
+  const isTablet = layoutMode === "tablet";
+  const isPhone = layoutMode === "phone";
   const clientId = useMemo(() => ensureClientId(), []);
   const [activeTab, setActiveTab] = useState<"projects" | "codex" | "git" | "log">(
     "projects",
   );
+  const tabletTab = activeTab === "projects" ? "codex" : activeTab;
   const [runnerId, setRunnerId] = useState<string | null>(null);
   const [runnerLabel, setRunnerLabel] = useState<string | null>(null);
   const [runnerOnline, setRunnerOnline] = useState(false);
   const [global, setGlobal] = useState<CloudGlobalSnapshot | null>(null);
-  const [workspaceSnap, setWorkspaceSnap] = useState<CloudWorkspaceSnapshot | null>(null);
+  const [workspaceSnaps, setWorkspaceSnaps] = useState<Record<string, CloudWorkspaceSnapshot>>(
+    {},
+  );
   const [threadSnap, setThreadSnap] = useState<CloudThreadSnapshot | null>(null);
   const [activeWorkspaceId, setActiveWorkspaceId] = useState<string | null>(null);
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [draft, setDraft] = useState("");
+  const [accessMode, setAccessMode] = useState<"read-only" | "current" | "full-access">(
+    "current",
+  );
+  const [reduceTransparency, setReduceTransparency] = useState(() => {
+    try {
+      const stored = window.localStorage.getItem("reduceTransparency");
+      // iOS: default to reduced transparency (no vibrancy background).
+      return stored == null ? true : stored === "true";
+    } catch {
+      return true;
+    }
+  });
   const [pendingCommand, setPendingCommand] = useState<PendingCommand | null>(null);
   const lastThreadUpdatedAt = useRef<number>(0);
   const [cloudError, setCloudError] = useState<string | null>(null);
   const e2eThreadRequested = useRef(false);
   const e2eBaseline = useRef<{ assistantCount: number } | null>(null);
   const e2eCompleted = useRef(false);
+  const lastWorkspaceUpdatedAt = useRef<Record<string, number>>({});
+
+  const e2eEnabled = (import.meta as any).env?.VITE_E2E === "1";
+
+  const restoreRequested = useRef(false);
+  useEffect(() => {
+    if (e2eEnabled) {
+      return;
+    }
+    if (restoreRequested.current) {
+      return;
+    }
+    restoreRequested.current = true;
+    try {
+      const storedWorkspaceId = window.localStorage.getItem("cloud.activeWorkspaceId");
+      const storedThreadId = window.localStorage.getItem("cloud.activeThreadId");
+      if (storedWorkspaceId) {
+        setActiveWorkspaceId(storedWorkspaceId);
+      }
+      if (storedThreadId) {
+        setActiveThreadId(storedThreadId);
+      }
+    } catch {
+      // ignore
+    }
+  }, [e2eEnabled]);
+
+  useEffect(() => {
+    if (e2eEnabled) {
+      return;
+    }
+    try {
+      if (activeWorkspaceId) {
+        window.localStorage.setItem("cloud.activeWorkspaceId", activeWorkspaceId);
+      } else {
+        window.localStorage.removeItem("cloud.activeWorkspaceId");
+      }
+      if (activeThreadId) {
+        window.localStorage.setItem("cloud.activeThreadId", activeThreadId);
+      } else {
+        window.localStorage.removeItem("cloud.activeThreadId");
+      }
+    } catch {
+      // ignore
+    }
+  }, [activeThreadId, activeWorkspaceId, e2eEnabled]);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem("reduceTransparency", String(reduceTransparency));
+    } catch {
+      // ignore
+    }
+  }, [reduceTransparency]);
 
   const submitCommand = useCallback(
     async (type: string, args: Record<string, unknown>) => {
@@ -96,7 +178,7 @@ export function CloudClientApp() {
       setRunnerLabel(null);
       setRunnerOnline(false);
       setGlobal(null);
-      setWorkspaceSnap(null);
+      setWorkspaceSnaps({});
       setThreadSnap(null);
       return;
     }
@@ -113,30 +195,57 @@ export function CloudClientApp() {
           setRunnerLabel(null);
           setRunnerOnline(false);
           setGlobal(null);
+          setWorkspaceSnaps({});
           return;
         }
         setRunnerId(runner.runnerId);
         setRunnerLabel(`${runner.name} (${runner.platform})`);
         setRunnerOnline(isRunnerOnline(runner.updatedAtMs));
 
+        let globalSnapshot: CloudGlobalSnapshot | null = null;
         const globalRecord = await cloudkitGetSnapshot(runner.runnerId, globalScopeKey());
         if (globalRecord?.payloadJson) {
           const parsed = parseCloudSnapshot<CloudGlobalSnapshot["payload"]>(globalRecord.payloadJson);
           if (parsed) {
-            setGlobal(parsed as CloudGlobalSnapshot);
+            globalSnapshot = parsed as CloudGlobalSnapshot;
+            setGlobal(globalSnapshot);
           }
         }
 
-        if (activeWorkspaceId) {
-          const wsRecord = await cloudkitGetSnapshot(runner.runnerId, workspaceScopeKey(activeWorkspaceId));
-          if (wsRecord?.payloadJson) {
-            const parsed = parseCloudSnapshot<CloudWorkspaceSnapshot["payload"]>(wsRecord.payloadJson);
-            if (parsed) {
-              setWorkspaceSnap(parsed as CloudWorkspaceSnapshot);
-            }
+        const nextWorkspaces = (globalSnapshot?.payload.workspaces ?? []).map((ws) => ws.id);
+        if (nextWorkspaces.length > 0) {
+          const snapshots = await Promise.all(
+            nextWorkspaces.map(async (workspaceId) => {
+              try {
+                const wsRecord = await cloudkitGetSnapshot(
+                  runner.runnerId,
+                  workspaceScopeKey(workspaceId),
+                );
+                if (!wsRecord?.payloadJson) return null;
+                const parsed = parseCloudSnapshot<CloudWorkspaceSnapshot["payload"]>(
+                  wsRecord.payloadJson,
+                );
+                if (!parsed) return null;
+                const next = parsed as CloudWorkspaceSnapshot;
+                const prevTs = lastWorkspaceUpdatedAt.current[workspaceId] ?? 0;
+                if (next.ts <= prevTs) {
+                  return null;
+                }
+                lastWorkspaceUpdatedAt.current[workspaceId] = next.ts;
+                return next;
+              } catch {
+                return null;
+              }
+            }),
+          );
+          const nextById: Record<string, CloudWorkspaceSnapshot> = {};
+          for (const snap of snapshots) {
+            if (!snap) continue;
+            nextById[snap.payload.workspaceId] = snap;
           }
-        } else {
-          setWorkspaceSnap(null);
+          if (Object.keys(nextById).length > 0) {
+            setWorkspaceSnaps((prev) => ({ ...prev, ...nextById }));
+          }
         }
 
         if (activeWorkspaceId && activeThreadId) {
@@ -195,9 +304,43 @@ export function CloudClientApp() {
     [activeWorkspaceId, workspaces],
   );
 
-  const threads = workspaceSnap?.payload.workspaceId === activeWorkspaceId
-    ? workspaceSnap.payload.threads
-    : [];
+  useEffect(() => {
+    if (e2eEnabled) {
+      return;
+    }
+    if (!activeWorkspaceId) {
+      return;
+    }
+    if (!workspaces.length) {
+      return;
+    }
+    const exists = workspaces.some((ws) => ws.id === activeWorkspaceId);
+    if (!exists) {
+      setActiveWorkspaceId(null);
+      setActiveThreadId(null);
+    }
+  }, [activeWorkspaceId, e2eEnabled, workspaces]);
+
+  const threads = activeWorkspaceId ? (workspaceSnaps[activeWorkspaceId]?.payload.threads ?? []) : [];
+
+  useEffect(() => {
+    if (e2eEnabled) {
+      return;
+    }
+    if (!activeWorkspaceId) {
+      return;
+    }
+    if (!activeThreadId) {
+      return;
+    }
+    if (threads.length === 0) {
+      return;
+    }
+    const exists = threads.some((t) => t.id === activeThreadId);
+    if (!exists) {
+      setActiveThreadId(null);
+    }
+  }, [activeThreadId, activeWorkspaceId, e2eEnabled, threads]);
 
   const activeItems: ConversationItem[] = useMemo(() => {
     if (!threadSnap || threadSnap.payload.threadId !== activeThreadId) {
@@ -222,32 +365,35 @@ export function CloudClientApp() {
     (id: string) => {
       setActiveWorkspaceId(id);
       setActiveThreadId(null);
-      setActiveTab("codex");
+      if (isCompact) {
+        setActiveTab("codex");
+      }
       if (runnerId && cloudEnabled) {
         void submitCommand("connectWorkspace", { workspaceId: id });
       }
     },
-    [cloudEnabled, runnerId, submitCommand],
+    [cloudEnabled, isCompact, runnerId, submitCommand],
   );
 
   const handleSelectThread = useCallback(
     (threadId: string) => {
       setActiveThreadId(threadId);
-      setActiveTab("codex");
+      if (isCompact) {
+        setActiveTab("codex");
+      }
       if (runnerId && cloudEnabled && activeWorkspaceId) {
         void submitCommand("resumeThread", { workspaceId: activeWorkspaceId, threadId });
       }
     },
-    [activeWorkspaceId, cloudEnabled, runnerId, submitCommand],
+    [activeWorkspaceId, cloudEnabled, isCompact, runnerId, submitCommand],
   );
 
-  const handleSend = useCallback(async (overrideText?: string) => {
+  const handleSend = useCallback(async (text: string) => {
     if (!canSend || !runnerId || !activeWorkspaceId || !activeThreadId) {
       return;
     }
-    const text = (overrideText ?? draft).trim();
-    if (!text) return;
-    setDraft("");
+    const trimmed = text.trim();
+    if (!trimmed) return;
 
     const commandId = crypto.randomUUID();
     setPendingCommand({ id: commandId, createdAt: Date.now(), status: "submitting" });
@@ -261,8 +407,8 @@ export function CloudClientApp() {
           args: {
             workspaceId: activeWorkspaceId,
             threadId: activeThreadId,
-            text,
-            accessMode: "current",
+            text: trimmed,
+            accessMode,
           },
         }),
       );
@@ -275,7 +421,7 @@ export function CloudClientApp() {
         error: error instanceof Error ? error.message : String(error),
       });
     }
-  }, [activeThreadId, activeWorkspaceId, canSend, clientId, draft, runnerId]);
+  }, [accessMode, activeThreadId, activeWorkspaceId, canSend, clientId, runnerId]);
 
   useEffect(() => {
     if (!pendingCommand || pendingCommand.status !== "waiting" || !runnerId) {
@@ -301,7 +447,6 @@ export function CloudClientApp() {
     };
   }, [pendingCommand, runnerId]);
 
-  const e2eEnabled = (import.meta as any).env?.VITE_E2E === "1";
   useEffect(() => {
     if (!e2eEnabled || !cloudEnabled || !runnerId || !runnerOnline || !workspaces.length) {
       return;
@@ -374,124 +519,300 @@ export function CloudClientApp() {
         ? "CodexMonitor on Mac seems offline. Start it to sync projects."
         : null;
 
-  const showProjects = activeTab === "projects";
-  const showChat = activeTab === "codex";
-  const showPlaceholder = !showProjects && !showChat;
+  const threadsByWorkspace = useMemo(() => {
+    const map: Record<string, ThreadSummary[]> = {};
+    Object.entries(workspaceSnaps).forEach(([workspaceId, snap]) => {
+      map[workspaceId] = snap.payload.threads ?? [];
+    });
+    return map;
+  }, [workspaceSnaps]);
 
-  return (
-    <div className="cloud-client">
-      <div className="cloud-client-topbar">
-        <div className="cloud-client-title">{showProjects ? "Projects" : activeWorkspace?.name ?? "Codex"}</div>
-        <button
-          type="button"
-          className="ghost icon-button"
-          aria-label="Settings"
-          onClick={() => setSettingsOpen(true)}
-        >
-          <Settings aria-hidden />
-        </button>
-      </div>
+  const threadStatusById = useMemo(() => {
+    const merged: Record<
+      string,
+      { isProcessing: boolean; hasUnread: boolean; isReviewing: boolean }
+    > = {};
+    Object.values(workspaceSnaps).forEach((snap) => {
+      Object.entries(snap.payload.threadStatusById ?? {}).forEach(([id, status]) => {
+        merged[id] = status;
+      });
+    });
+    return merged;
+  }, [workspaceSnaps]);
 
-      {headerHint && <div className="cloud-client-hint">{headerHint}</div>}
-      {runnerLabel && (
-        <div className="cloud-client-runner">
-          {runnerLabel} · {runnerOnline ? "online" : "offline"}
+  const threadListLoadingByWorkspace = useMemo(() => {
+    const next: Record<string, boolean> = {};
+    workspaces.forEach((ws) => {
+      if (!runnerOnline) {
+        next[ws.id] = false;
+      } else {
+        next[ws.id] = workspaceSnaps[ws.id] == null;
+      }
+    });
+    return next;
+  }, [runnerOnline, workspaceSnaps, workspaces]);
+
+  useEffect(() => {
+    if (!isPhone) {
+      return;
+    }
+    if (!activeWorkspace && activeTab !== "projects") {
+      setActiveTab("projects");
+    }
+  }, [activeTab, activeWorkspace, isPhone]);
+
+  useEffect(() => {
+    if (!isTablet) {
+      return;
+    }
+    if (activeTab === "projects") {
+      setActiveTab("codex");
+    }
+  }, [activeTab, isTablet]);
+
+  const showHome = !activeWorkspace;
+  const isThinking =
+    Boolean(pendingCommand && pendingCommand.status === "waiting") ||
+    Boolean(activeThreadId && threadStatusById[activeThreadId]?.isProcessing);
+
+  const sidebarNode = (
+    <Sidebar
+      workspaces={workspaces}
+      threadsByWorkspace={threadsByWorkspace}
+      threadStatusById={threadStatusById}
+      threadListLoadingByWorkspace={threadListLoadingByWorkspace}
+      activeWorkspaceId={activeWorkspaceId}
+      activeThreadId={activeThreadId}
+      accountRateLimits={null}
+      onOpenSettings={() => setSettingsOpen(true)}
+      onOpenDebug={() => {
+        alert("Debug view is not available in Cloud mode yet.");
+      }}
+      hasDebugAlerts={false}
+      onAddWorkspace={() => {
+        alert("Add workspaces from the Mac app. The iOS app is read-only.");
+      }}
+      onSelectHome={() => {
+        setActiveWorkspaceId(null);
+        setActiveThreadId(null);
+        if (isCompact) {
+          setActiveTab("projects");
+        }
+      }}
+      onSelectWorkspace={(workspaceId) => {
+        handleSelectWorkspace(workspaceId);
+      }}
+      onConnectWorkspace={(workspace) => {
+        void submitCommand("connectWorkspace", { workspaceId: workspace.id });
+      }}
+      onAddAgent={(workspace) => {
+        setActiveWorkspaceId(workspace.id);
+        setActiveThreadId(null);
+        if (isCompact) {
+          setActiveTab("codex");
+        }
+        void submitCommand("startThread", { workspaceId: workspace.id });
+      }}
+      onAddWorktreeAgent={() => {
+        alert("Worktree agents are not available from iOS yet.");
+      }}
+      onToggleWorkspaceCollapse={() => {}}
+      onSelectThread={(workspaceId, threadId) => {
+        if (workspaceId !== activeWorkspaceId) {
+          handleSelectWorkspace(workspaceId);
+        }
+        handleSelectThread(threadId);
+      }}
+      onDeleteThread={() => {
+        alert("Archiving threads from iOS is not available yet.");
+      }}
+      onDeleteWorkspace={() => {
+        alert("Workspace deletion is not available from iOS.");
+      }}
+      onDeleteWorktree={() => {}}
+    />
+  );
+
+  const messagesNode = (
+    <Messages
+      items={activeItems}
+      isThinking={isThinking}
+    />
+  );
+
+  const composerNode = (
+    <Composer
+      onSend={(text) => void handleSend(text)}
+      onStop={() => {}}
+      canStop={false}
+      disabled={!canSend}
+      models={[]}
+      selectedModelId={null}
+      onSelectModel={() => {}}
+      reasoningOptions={[]}
+      selectedEffort={null}
+      onSelectEffort={() => {}}
+      accessMode={accessMode}
+      onSelectAccessMode={setAccessMode}
+      skills={[]}
+      files={[]}
+    />
+  );
+
+  const appClassName = `app ${isCompact ? "layout-compact" : "layout-desktop"}${
+    isPhone ? " layout-phone" : ""
+  }${isTablet ? " layout-tablet" : ""}${reduceTransparency ? " reduced-transparency" : ""}`;
+
+  const tabletNavTab: "codex" | "git" | "log" =
+    tabletTab === "git" ? "git" : tabletTab === "log" ? "log" : "codex";
+
+  const tabletLayout = (
+    <>
+      <TabletNav activeTab={tabletNavTab} onSelect={setActiveTab} />
+      <div className="tablet-projects">{sidebarNode}</div>
+      <div
+        className="projects-resizer"
+        role="separator"
+        aria-orientation="vertical"
+        aria-label="Resize projects"
+        onMouseDown={onSidebarResizeStart}
+        onPointerDown={onSidebarResizeStart}
+      />
+      <section className="tablet-main">
+        {headerHint && (
+          <div className="update-toast" role="status">
+            <div className="update-toast-title">Cloud</div>
+            <div className="update-toast-body">{headerHint}</div>
+          </div>
+        )}
+        {runnerLabel && (
+          <div className="update-toast" role="status">
+            <div className="update-toast-body">
+              {runnerLabel} · {runnerOnline ? "online" : "offline"}
+            </div>
+          </div>
+        )}
+        {showHome ? (
+          <Home
+            onOpenProject={() =>
+              alert("Add workspaces from the Mac app. The iOS app is read-only.")
+            }
+            onAddWorkspace={() =>
+              alert("Add workspaces from the Mac app. The iOS app is read-only.")
+            }
+            onCloneRepository={() => {}}
+          />
+        ) : (
+          <>
+            <div className="main-topbar tablet-topbar" data-tauri-drag-region>
+              <div className="main-topbar-left">
+                <MainHeader
+                  workspace={activeWorkspace}
+                  branchName={"cloud"}
+                  branches={[]}
+                  onCheckoutBranch={() => {}}
+                  onCreateBranch={() => {}}
+                  readonly
+                />
+              </div>
+              <div className="actions" />
+            </div>
+            {tabletTab === "codex" && (
+              <>
+                <div className="content tablet-content">{messagesNode}</div>
+                {composerNode}
+              </>
+            )}
+            {tabletTab !== "codex" && (
+              <div className="compact-empty">
+                <h3>Not available</h3>
+                <p>This tab is not available in Cloud mode yet.</p>
+              </div>
+            )}
+          </>
+        )}
+      </section>
+    </>
+  );
+
+  const phoneLayout = (
+    <div className="compact-shell">
+      {headerHint && (
+        <div className="update-toast" role="status">
+          <div className="update-toast-title">Cloud</div>
+          <div className="update-toast-body">{headerHint}</div>
         </div>
       )}
-
-      {showProjects && (
-        <div className="cloud-client-projects">
-          {workspaces.length === 0 ? (
-            <div className="cloud-client-empty">No workspaces yet.</div>
+      {runnerLabel && (
+        <div className="update-toast" role="status">
+          <div className="update-toast-body">
+            {runnerLabel} · {runnerOnline ? "online" : "offline"}
+          </div>
+        </div>
+      )}
+      {activeTab === "projects" && <div className="compact-panel">{sidebarNode}</div>}
+      {activeTab === "codex" && (
+        <div className="compact-panel">
+          {activeWorkspace ? (
+            <>
+              <div className="main-topbar compact-topbar" data-tauri-drag-region>
+                <div className="main-topbar-left">
+                  <MainHeader
+                    workspace={activeWorkspace}
+                    branchName={"cloud"}
+                    branches={[]}
+                    onCheckoutBranch={() => {}}
+                    onCreateBranch={() => {}}
+                    readonly
+                  />
+                </div>
+                <div className="actions" />
+              </div>
+              <div className="content compact-content">{messagesNode}</div>
+              {composerNode}
+            </>
           ) : (
-            workspaces.map((ws) => (
-              <button
-                key={ws.id}
-                type="button"
-                className={`cloud-client-workspace ${activeWorkspaceId === ws.id ? "active" : ""}`}
-                onClick={() => handleSelectWorkspace(ws.id)}
-              >
-                <div className="cloud-client-workspace-name">{ws.name}</div>
-                <div className="cloud-client-workspace-sub">{ws.connected ? "connected" : "disconnected"}</div>
+            <div className="compact-empty">
+              <h3>No workspace selected</h3>
+              <p>Choose a project to start chatting.</p>
+              <button className="ghost" onClick={() => setActiveTab("projects")}>
+                Go to Projects
               </button>
-            ))
+            </div>
           )}
         </div>
       )}
-
-      {showChat && (
-        <div className="cloud-client-chat">
-          <div className="cloud-client-threadbar">
-            {threads.length === 0 ? (
-              <div className="cloud-client-empty">No agents yet.</div>
-            ) : (
-              threads.map((thread) => (
-                <button
-                  key={thread.id}
-                  type="button"
-                  className={`cloud-client-thread ${activeThreadId === thread.id ? "active" : ""}`}
-                  onClick={() => handleSelectThread(thread.id)}
-                >
-                  {thread.name}
-                </button>
-              ))
-            )}
-          </div>
-          <div className="cloud-client-actions">
-            <button
-              type="button"
-              className="ghost"
-              disabled={!canSend || Boolean(pendingCommand)}
-              onClick={() => void handleSend("Erzähl mir einen kurzen Witz.")}
-            >
-              Demo: Witz
-            </button>
-          </div>
-          <div className="cloud-client-messages">
-            <Messages items={activeItems} isThinking={Boolean(pendingCommand && pendingCommand.status === "waiting")} />
-          </div>
-          <div className="cloud-client-composer">
-            {pendingCommand?.status === "error" && (
-              <div className="cloud-client-error">
-                {pendingCommand.error ?? "Command failed."}
-              </div>
-            )}
-            <textarea
-              className="cloud-client-input"
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              placeholder={canSend ? "Ask Codex…" : "Select a workspace + agent first…"}
-              disabled={!canSend}
-              rows={2}
-            />
-            <button
-              type="button"
-              className="primary"
-              onClick={() => void handleSend()}
-              disabled={!canSend}
-            >
-              Send
-            </button>
+      {activeTab !== "projects" && activeTab !== "codex" && (
+        <div className="compact-panel">
+          <div className="compact-empty">
+            <h3>Not available</h3>
+            <p>This tab is not available in Cloud mode yet.</p>
           </div>
         </div>
       )}
-      {showPlaceholder && (
-        <div className="cloud-client-empty">
-          This tab is not available in Cloud mode yet.
-        </div>
-      )}
+      <TabBar activeTab={activeTab} onSelect={setActiveTab} />
+    </div>
+  );
 
-      <TabBar activeTab={activeTab} onSelect={(tab) => setActiveTab(tab)} />
-
-      {/* Settings screen is still the desktop SettingsView; we keep it optional. */}
+  return (
+    <div
+      className={appClassName}
+      style={
+        {
+          "--sidebar-width": `${sidebarWidth}px`,
+        } as React.CSSProperties
+      }
+    >
+      <div className="drag-strip" id="titlebar" data-tauri-drag-region />
+      {isPhone ? phoneLayout : isTablet ? tabletLayout : tabletLayout}
       {settingsOpen ? (
         <SettingsView
-          workspaces={[]}
+          workspaces={workspaces}
           onClose={() => setSettingsOpen(false)}
           onMoveWorkspace={() => {}}
           onDeleteWorkspace={() => {}}
-          reduceTransparency={false}
-          onToggleTransparency={() => {}}
+          reduceTransparency={reduceTransparency}
+          onToggleTransparency={setReduceTransparency}
           appSettings={appSettings}
           onUpdateAppSettings={async (next) => {
             await saveSettings(next);
