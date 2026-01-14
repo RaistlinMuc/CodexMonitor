@@ -20,6 +20,7 @@ import "./styles/settings.css";
 import "./styles/compact-base.css";
 import "./styles/compact-phone.css";
 import "./styles/compact-tablet.css";
+import "./styles/cloud-client.css";
 import { WorktreePrompt } from "./components/WorktreePrompt";
 import { AboutView } from "./components/AboutView";
 import { SettingsView } from "./components/SettingsView";
@@ -56,6 +57,7 @@ import { useUiScaleShortcuts } from "./hooks/useUiScaleShortcuts";
 import { useWorkspaceSelection } from "./hooks/useWorkspaceSelection";
 import { useNewAgentShortcut } from "./hooks/useNewAgentShortcut";
 import { isAppleMobile } from "./utils/platform";
+import { CloudClientApp } from "./components/CloudClientApp";
 import type { AccessMode, DiffLineReference, QueuedMessage, WorkspaceInfo } from "./types";
 
 function useWindowLabel() {
@@ -904,6 +906,9 @@ function App() {
   const windowLabel = useWindowLabel();
   if (windowLabel === "about") {
     return <AboutView />;
+  }
+  if (isAppleMobile()) {
+    return <CloudClientApp />;
   }
   return <MainApp />;
 }
