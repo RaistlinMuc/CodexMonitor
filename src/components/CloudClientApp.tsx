@@ -1380,7 +1380,7 @@ export function CloudClientApp() {
 
   const composerNode = (
     <Composer
-      onSend={(text) => void handleSend(text)}
+      onSend={(text, _images) => void handleSend(text)}
       onStop={() => {}}
       canStop={false}
       disabled={!canSend || Boolean(activePending && activePending.phase !== "error")}
@@ -1393,6 +1393,7 @@ export function CloudClientApp() {
       accessMode={accessMode}
       onSelectAccessMode={setAccessMode}
       skills={[]}
+      prompts={[]}
       files={[]}
     />
   );
@@ -1438,7 +1439,9 @@ export function CloudClientApp() {
             onAddWorkspace={() =>
               alert("Add workspaces from the Mac app. The iOS app is read-only.")
             }
-            onCloneRepository={() => {}}
+            latestAgentRuns={[]}
+            isLoadingLatestAgents={false}
+            onSelectThread={() => {}}
           />
         ) : (
           <>
@@ -1559,6 +1562,8 @@ export function CloudClientApp() {
           onCloudKitStatus={cloudkitStatus}
           onCloudKitTest={cloudkitTest}
           onUpdateWorkspaceCodexBin={async () => {}}
+          scaleShortcutTitle=""
+          scaleShortcutText=""
         />
       ) : null}
     </div>

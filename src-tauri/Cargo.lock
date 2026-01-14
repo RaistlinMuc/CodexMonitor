@@ -462,8 +462,8 @@ dependencies = [
 name = "codex-monitor"
 version = "0.1.0"
 dependencies = [
- "fix-path-env",
  "block2",
+ "fix-path-env",
  "git2",
  "objc2",
  "objc2-cloud-kit",
