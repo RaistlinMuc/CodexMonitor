@@ -9,6 +9,7 @@
     "build:appimage": "NO_STRIP=1 tauri build --bundles appimage",
     "typecheck": "tsc --noEmit",
     "preview": "vite preview",
+    "macos:build-signed": "bash scripts/macos-build-signed.sh",
     "tauri": "tauri"
   },
   "dependencies": {

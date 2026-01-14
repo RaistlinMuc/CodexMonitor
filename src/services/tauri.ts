@@ -2,6 +2,8 @@ import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import type {
   AppSettings,
+  CloudKitStatus,
+  CloudKitTestResult,
   CodexDoctorResult,
   WorkspaceInfo,
   WorkspaceSettings,
@@ -201,6 +203,14 @@ export async function runCodexDoctor(
   codexBin: string | null,
 ): Promise<CodexDoctorResult> {
   return invoke<CodexDoctorResult>("codex_doctor", { codexBin });
+}
+
+export async function cloudkitStatus(): Promise<CloudKitStatus> {
+  return invoke<CloudKitStatus>("cloudkit_status");
+}
+
+export async function cloudkitTest(): Promise<CloudKitTestResult> {
+  return invoke<CloudKitTestResult>("cloudkit_test");
 }
 
 export async function getWorkspaceFiles(workspaceId: string) {

@@ -63,6 +63,8 @@ export type AccessMode = "read-only" | "current" | "full-access";
 
 export type AppSettings = {
   codexBin: string | null;
+  cloudKitEnabled: boolean;
+  cloudKitContainerId: string | null;
   defaultAccessMode: AccessMode;
   uiScale: number;
 };
@@ -77,6 +79,16 @@ export type CodexDoctorResult = {
   nodeOk: boolean;
   nodeVersion: string | null;
   nodeDetails: string | null;
+};
+
+export type CloudKitStatus = {
+  available: boolean;
+  status: string;
+};
+
+export type CloudKitTestResult = {
+  recordName: string;
+  durationMs: number;
 };
 
 export type ApprovalRequest = {

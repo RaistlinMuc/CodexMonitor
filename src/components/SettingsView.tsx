@@ -3,6 +3,7 @@ import { open } from "@tauri-apps/plugin-dialog";
 import {
   ChevronDown,
   ChevronUp,
+  Cloud,
   Laptop2,
   LayoutGrid,
   Stethoscope,
@@ -10,10 +11,14 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import type { AppSettings, CodexDoctorResult, WorkspaceInfo } from "../types";
-import {
-  clampUiScale,
-} from "../utils/uiScale";
+import type {
+  AppSettings,
+  CloudKitStatus,
+  CloudKitTestResult,
+  CodexDoctorResult,
+  WorkspaceInfo,
+} from "../types";
+import { clampUiScale } from "../utils/uiScale";
 
 type SettingsViewProps = {
   workspaces: WorkspaceInfo[];
@@ -25,13 +30,15 @@ type SettingsViewProps = {
   appSettings: AppSettings;
   onUpdateAppSettings: (next: AppSettings) => Promise<void>;
   onRunDoctor: (codexBin: string | null) => Promise<CodexDoctorResult>;
+  onCloudKitStatus: () => Promise<CloudKitStatus>;
+  onCloudKitTest: () => Promise<CloudKitTestResult>;
   onUpdateWorkspaceCodexBin: (id: string, codexBin: string | null) => Promise<void>;
   scaleShortcutTitle: string;
   scaleShortcutText: string;
 };
 
-type SettingsSection = "projects" | "display";
-type CodexSection = SettingsSection | "codex";
+type SettingsSection = "projects" | "display" | "cloud";
+type SettingsTab = SettingsSection | "codex";
 
 function orderValue(workspace: WorkspaceInfo) {
   const value = workspace.settings.sortOrder;
@@ -48,21 +55,37 @@ export function SettingsView({
   appSettings,
   onUpdateAppSettings,
   onRunDoctor,
+  onCloudKitStatus,
+  onCloudKitTest,
   onUpdateWorkspaceCodexBin,
   scaleShortcutTitle,
   scaleShortcutText,
 }: SettingsViewProps) {
-  const [activeSection, setActiveSection] = useState<CodexSection>("projects");
+  const [activeSection, setActiveSection] = useState<SettingsTab>("projects");
   const [codexPathDraft, setCodexPathDraft] = useState(appSettings.codexBin ?? "");
   const [scaleDraft, setScaleDraft] = useState(
     `${Math.round(clampUiScale(appSettings.uiScale) * 100)}%`,
+  );
+  const [cloudKitContainerDraft, setCloudKitContainerDraft] = useState(
+    appSettings.cloudKitContainerId ?? "",
   );
   const [overrideDrafts, setOverrideDrafts] = useState<Record<string, string>>({});
   const [doctorState, setDoctorState] = useState<{
     status: "idle" | "running" | "done";
     result: CodexDoctorResult | null;
   }>({ status: "idle", result: null });
+  const [cloudStatusState, setCloudStatusState] = useState<{
+    status: "idle" | "running" | "done";
+    result: CloudKitStatus | null;
+    error: string | null;
+  }>({ status: "idle", result: null, error: null });
+  const [cloudTestState, setCloudTestState] = useState<{
+    status: "idle" | "running" | "done";
+    result: CloudKitTestResult | null;
+    error: string | null;
+  }>({ status: "idle", result: null, error: null });
   const [isSavingSettings, setIsSavingSettings] = useState(false);
+  const [isSavingCloudSettings, setIsSavingCloudSettings] = useState(false);
 
   const projects = useMemo(() => {
     return workspaces
@@ -86,6 +109,10 @@ export function SettingsView({
   }, [appSettings.uiScale]);
 
   useEffect(() => {
+    setCloudKitContainerDraft(appSettings.cloudKitContainerId ?? "");
+  }, [appSettings.cloudKitContainerId]);
+
+  useEffect(() => {
     setOverrideDrafts((prev) => {
       const next: Record<string, string> = {};
       projects.forEach((workspace) => {
@@ -104,6 +131,13 @@ export function SettingsView({
     ? Number(trimmedScale.replace("%", ""))
     : Number.NaN;
   const parsedScale = Number.isFinite(parsedPercent) ? parsedPercent / 100 : null;
+  const cloudKitContainerDirty =
+    (cloudKitContainerDraft.trim() || null) !==
+    (appSettings.cloudKitContainerId ?? null);
+
+  const cloudKitContainerConfigured = Boolean(
+    (appSettings.cloudKitContainerId ?? "").trim(),
+  );
 
   const handleSaveCodexSettings = async () => {
     setIsSavingSettings(true);
@@ -178,6 +212,75 @@ export function SettingsView({
     }
   };
 
+  const handleToggleCloudKit = async () => {
+    if (isSavingCloudSettings) {
+      return;
+    }
+    const nextEnabled = !appSettings.cloudKitEnabled;
+    setIsSavingCloudSettings(true);
+    try {
+      await onUpdateAppSettings({
+        ...appSettings,
+        cloudKitEnabled: nextEnabled,
+      });
+      setCloudStatusState({ status: "idle", result: null, error: null });
+      setCloudTestState({ status: "idle", result: null, error: null });
+    } finally {
+      setIsSavingCloudSettings(false);
+    }
+  };
+
+  const handleSaveCloudKitContainer = async () => {
+    if (isSavingCloudSettings) {
+      return;
+    }
+    setIsSavingCloudSettings(true);
+    try {
+      await onUpdateAppSettings({
+        ...appSettings,
+        cloudKitContainerId: cloudKitContainerDraft.trim()
+          ? cloudKitContainerDraft.trim()
+          : null,
+      });
+      setCloudStatusState({ status: "idle", result: null, error: null });
+      setCloudTestState({ status: "idle", result: null, error: null });
+    } finally {
+      setIsSavingCloudSettings(false);
+    }
+  };
+
+  const handleRunCloudStatus = async () => {
+    setCloudStatusState({ status: "running", result: null, error: null });
+    try {
+      const result = await onCloudKitStatus();
+      setCloudStatusState({ status: "done", result, error: null });
+    } catch (error) {
+      setCloudStatusState({
+        status: "done",
+        result: null,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  };
+
+  const handleRunCloudTest = async () => {
+    setCloudTestState({ status: "running", result: null, error: null });
+    try {
+      const result = await onCloudKitTest();
+      setCloudTestState({ status: "done", result, error: null });
+    } catch (error) {
+      setCloudTestState({
+        status: "done",
+        result: null,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  };
+
+  // Intentionally do not auto-run CloudKit calls when the Cloud tab opens.
+  // Misconfigured entitlements can cause native exceptions, so we only run
+  // CloudKit operations via explicit user actions (buttons).
+
   return (
     <div className="settings-overlay" role="dialog" aria-modal="true">
       <div className="settings-backdrop" onClick={onClose} />
@@ -210,6 +313,14 @@ export function SettingsView({
             >
               <Laptop2 aria-hidden />
               Display
+            </button>
+            <button
+              type="button"
+              className={`settings-nav ${activeSection === "cloud" ? "active" : ""}`}
+              onClick={() => setActiveSection("cloud")}
+            >
+              <Cloud aria-hidden />
+              Cloud
             </button>
             <button
               type="button"
@@ -332,6 +443,130 @@ export function SettingsView({
                     </button>
                   </div>
                 </div>
+              </section>
+            )}
+            {activeSection === "cloud" && (
+              <section className="settings-section">
+                <div className="settings-section-title">Cloud</div>
+                <div className="settings-section-subtitle">
+                  Optional iCloud sync for projects and chats.
+                </div>
+                <div className="settings-toggle-row">
+                  <div>
+                    <div className="settings-toggle-title">Enable CloudKit Sync</div>
+                    <div className="settings-toggle-subtitle">
+                      Mirrors your data into your private iCloud database.
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className={`settings-toggle ${appSettings.cloudKitEnabled ? "on" : ""}`}
+                    onClick={handleToggleCloudKit}
+                    aria-pressed={appSettings.cloudKitEnabled}
+                    disabled={isSavingCloudSettings}
+                  >
+                    <span className="settings-toggle-knob" />
+                  </button>
+                </div>
+
+                <div className="settings-field">
+                  <label
+                    className="settings-field-label"
+                    htmlFor="cloudkit-container-id"
+                  >
+                    CloudKit container identifier
+                  </label>
+                  <div className="settings-field-row">
+                    <input
+                      id="cloudkit-container-id"
+                      className="settings-input"
+                      value={cloudKitContainerDraft}
+                      placeholder="iCloud.com.example.codexmonitor"
+                      onChange={(event) =>
+                        setCloudKitContainerDraft(event.target.value)
+                      }
+                    />
+                  </div>
+                  <div className="settings-help">
+                    Use the iCloud container identifier enabled for this app. Example:{" "}
+                    <code>iCloud.com.ilass.codexmonitor</code>.
+                  </div>
+                </div>
+
+                <div className="settings-field-actions">
+                  {cloudKitContainerDirty && (
+                    <button
+                      type="button"
+                      className="primary"
+                      onClick={handleSaveCloudKitContainer}
+                      disabled={isSavingCloudSettings}
+                    >
+                      {isSavingCloudSettings ? "Saving..." : "Save"}
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    className="ghost settings-button-compact"
+                    onClick={handleRunCloudStatus}
+                    disabled={
+                      !appSettings.cloudKitEnabled ||
+                      !cloudKitContainerConfigured ||
+                      cloudStatusState.status === "running"
+                    }
+                  >
+                    <Stethoscope aria-hidden />
+                    {cloudStatusState.status === "running"
+                      ? "Checking..."
+                      : "Check status"}
+                  </button>
+                  <button
+                    type="button"
+                    className="primary settings-button-compact"
+                    onClick={handleRunCloudTest}
+                    disabled={
+                      !appSettings.cloudKitEnabled ||
+                      !cloudKitContainerConfigured ||
+                      cloudTestState.status === "running"
+                    }
+                  >
+                    Test CloudKit
+                  </button>
+                </div>
+
+                {cloudStatusState.status === "done" && (
+                  <div
+                    className={`settings-doctor ${cloudStatusState.result?.available ? "ok" : "error"}`}
+                  >
+                    <div className="settings-doctor-title">
+                      {cloudStatusState.result?.available
+                        ? "CloudKit account available"
+                        : "CloudKit unavailable"}
+                    </div>
+                    <div className="settings-doctor-body">
+                      <div>Status: {cloudStatusState.result?.status ?? "unknown"}</div>
+                      {cloudStatusState.error && <div>{cloudStatusState.error}</div>}
+                    </div>
+                  </div>
+                )}
+
+                {cloudTestState.status === "done" && (
+                  <div
+                    className={`settings-doctor ${cloudTestState.result ? "ok" : "error"}`}
+                  >
+                    <div className="settings-doctor-title">
+                      {cloudTestState.result ? "CloudKit test succeeded" : "CloudKit test failed"}
+                    </div>
+                    <div className="settings-doctor-body">
+                      {cloudTestState.result && (
+                        <div>
+                          Record: {cloudTestState.result.recordName} (
+                          {cloudTestState.result.durationMs} ms)
+                        </div>
+                      )}
+                      {cloudTestState.error && <div>{cloudTestState.error}</div>}
+                    </div>
+                  </div>
+                )}
               </section>
             )}
             {activeSection === "codex" && (

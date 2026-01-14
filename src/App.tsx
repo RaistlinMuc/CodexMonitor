@@ -27,6 +27,8 @@ import { DesktopLayout } from "./components/layouts/DesktopLayout";
 import { TabletLayout } from "./components/layouts/TabletLayout";
 import { PhoneLayout } from "./components/layouts/PhoneLayout";
 import { useLayoutNodes } from "./hooks/useLayoutNodes";
+import { ArrowLeft } from "lucide-react";
+import { cloudkitStatus, cloudkitTest } from "./services/tauri";
 import { useWorkspaces } from "./hooks/useWorkspaces";
 import { useThreads } from "./hooks/useThreads";
 import { useWindowDrag } from "./hooks/useWindowDrag";
@@ -884,6 +886,8 @@ function MainApp() {
             await queueSaveSettings(next);
           }}
           onRunDoctor={doctor}
+          onCloudKitStatus={cloudkitStatus}
+          onCloudKitTest={cloudkitTest}
           onUpdateWorkspaceCodexBin={async (id, codexBin) => {
             await updateWorkspaceCodexBin(id, codexBin);
           }}
