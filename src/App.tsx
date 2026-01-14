@@ -55,6 +55,7 @@ import { useWorktreePrompt } from "./hooks/useWorktreePrompt";
 import { useUiScaleShortcuts } from "./hooks/useUiScaleShortcuts";
 import { useWorkspaceSelection } from "./hooks/useWorkspaceSelection";
 import { useNewAgentShortcut } from "./hooks/useNewAgentShortcut";
+import { isAppleMobile } from "./utils/platform";
 import type { AccessMode, DiffLineReference, QueuedMessage, WorkspaceInfo } from "./types";
 
 function useWindowLabel() {
@@ -135,7 +136,7 @@ function MainApp() {
 
   const composerInputRef = useRef<HTMLTextAreaElement | null>(null);
 
-  const updater = useUpdater({ onDebug: addDebugEntry });
+  const updater = useUpdater({ enabled: !isAppleMobile(), onDebug: addDebugEntry });
 
   const {
     workspaces,
