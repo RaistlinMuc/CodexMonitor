@@ -103,6 +103,10 @@ pub(crate) struct WorkspaceSettings {
 pub(crate) struct AppSettings {
     #[serde(default, rename = "codexBin")]
     pub(crate) codex_bin: Option<String>,
+    #[serde(default, rename = "cloudKitEnabled")]
+    pub(crate) cloudkit_enabled: bool,
+    #[serde(default, rename = "cloudKitContainerId")]
+    pub(crate) cloudkit_container_id: Option<String>,
     #[serde(default = "default_access_mode", rename = "defaultAccessMode")]
     pub(crate) default_access_mode: String,
 }
@@ -115,6 +119,8 @@ impl Default for AppSettings {
     fn default() -> Self {
         Self {
             codex_bin: None,
+            cloudkit_enabled: false,
+            cloudkit_container_id: None,
             default_access_mode: "current".to_string(),
         }
     }
@@ -128,6 +134,8 @@ mod tests {
     fn app_settings_defaults_from_empty_json() {
         let settings: AppSettings = serde_json::from_str("{}").expect("settings deserialize");
         assert!(settings.codex_bin.is_none());
+        assert!(!settings.cloudkit_enabled);
+        assert!(settings.cloudkit_container_id.is_none());
         assert_eq!(settings.default_access_mode, "current");
     }
 

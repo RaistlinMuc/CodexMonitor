@@ -37,6 +37,7 @@ import { TabBar } from "./components/TabBar";
 import { TabletNav } from "./components/TabletNav";
 import { SettingsView } from "./components/SettingsView";
 import { ArrowLeft } from "lucide-react";
+import { cloudkitStatus, cloudkitTest } from "./services/tauri";
 import { useWorkspaces } from "./hooks/useWorkspaces";
 import { useThreads } from "./hooks/useThreads";
 import { useWindowDrag } from "./hooks/useWindowDrag";
@@ -1081,6 +1082,8 @@ function MainApp() {
             await saveSettings(next);
           }}
           onRunDoctor={doctor}
+          onCloudKitStatus={cloudkitStatus}
+          onCloudKitTest={cloudkitTest}
           onUpdateWorkspaceCodexBin={async (id, codexBin) => {
             await updateWorkspaceCodexBin(id, codexBin);
           }}

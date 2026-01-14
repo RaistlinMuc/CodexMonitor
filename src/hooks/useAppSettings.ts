@@ -4,6 +4,8 @@ import { getAppSettings, runCodexDoctor, updateAppSettings } from "../services/t
 
 const defaultSettings: AppSettings = {
   codexBin: null,
+  cloudKitEnabled: false,
+  cloudKitContainerId: null,
   defaultAccessMode: "current",
 };
 

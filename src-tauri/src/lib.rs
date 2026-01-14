@@ -2,6 +2,7 @@ use tauri::menu::{Menu, MenuItemBuilder, PredefinedMenuItem, Submenu};
 use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
 
 mod codex;
+mod cloudkit;
 mod git;
 mod settings;
 mod state;
@@ -9,6 +10,16 @@ mod storage;
 mod types;
 mod utils;
 mod workspaces;
+
+pub fn cloudkit_cli_status_json(container_id: String) -> Result<String, String> {
+    let status = cloudkit::cloudkit_cli_status(container_id)?;
+    serde_json::to_string(&status).map_err(|error| error.to_string())
+}
+
+pub fn cloudkit_cli_test_json(container_id: String) -> Result<String, String> {
+    let result = cloudkit::cloudkit_cli_test(container_id)?;
+    serde_json::to_string(&result).map_err(|error| error.to_string())
+}
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -126,6 +137,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             settings::get_app_settings,
             settings::update_app_settings,
+            cloudkit::cloudkit_status,
+            cloudkit::cloudkit_test,
             codex::codex_doctor,
             workspaces::list_workspaces,
             workspaces::add_workspace,
