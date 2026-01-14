@@ -21,12 +21,12 @@ tauri-build = { version = "2", features = [] }
 tauri = { version = "2", features = ["macos-private-api"] }
 tauri-plugin-opener = "2"
 tauri-plugin-process = "2"
+tauri-plugin-updater = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tokio = { version = "1", features = ["io-util", "process", "rt", "sync", "time"] }
 uuid = { version = "1", features = ["v4"] }
 tauri-plugin-dialog = "2"
-git2 = "0.20.3"
 
 [target."cfg(any(target_os = \"macos\", target_os = \"ios\"))".dependencies]
 block2 = "0.6"
@@ -35,4 +35,4 @@ objc2-cloud-kit = { version = "0.3", features = ["block2"] }
 objc2-foundation = "0.3"
 
 [target."cfg(not(any(target_os = \"android\", target_os = \"ios\")))".dependencies]
-tauri-plugin-updater = "2"
+git2 = "0.20.3"
