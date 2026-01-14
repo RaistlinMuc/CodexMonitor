@@ -42,7 +42,7 @@ impl WorkspaceSession {
             .map_err(|e| e.to_string())
     }
 
-    async fn send_request(&self, method: &str, params: Value) -> Result<Value, String> {
+    pub(crate) async fn send_request(&self, method: &str, params: Value) -> Result<Value, String> {
         let id = self.next_id.fetch_add(1, Ordering::SeqCst);
         let (tx, rx) = oneshot::channel();
         self.pending.lock().await.insert(id, tx);
@@ -51,7 +51,7 @@ impl WorkspaceSession {
         rx.await.map_err(|_| "request canceled".to_string())
     }
 
-    async fn send_notification(&self, method: &str, params: Option<Value>) -> Result<(), String> {
+    pub(crate) async fn send_notification(&self, method: &str, params: Option<Value>) -> Result<(), String> {
         let value = if let Some(params) = params {
             json!({ "method": method, "params": params })
         } else {
