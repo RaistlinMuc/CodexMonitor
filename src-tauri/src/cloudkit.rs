@@ -1674,6 +1674,7 @@ mod cloudkit_impl {
         let mut last_global = Instant::now().checked_sub(Duration::from_secs(60)).unwrap_or_else(Instant::now);
         let mut recent_send_dedupe: HashMap<u64, Instant> = HashMap::new();
         let mut last_dedupe_cleanup = Instant::now();
+        let mut logged_disallowed = false;
 
         loop {
             let (enabled, container_id, runner_id, poll_ms) = {
@@ -1691,6 +1692,20 @@ mod cloudkit_impl {
                 tokio::time::sleep(Duration::from_millis(500)).await;
                 continue;
             }
+
+            // On macOS debug builds, CloudKit often crashes the process when the binary isn't
+            // properly signed with iCloud entitlements. Gate the poller to keep the app usable.
+            if let Err(message) = ensure_cloudkit_allowed() {
+                if !logged_disallowed {
+                    debug_log(&message);
+                    logged_disallowed = true;
+                }
+                tokio::time::sleep(Duration::from_secs(2)).await;
+                continue;
+            } else {
+                logged_disallowed = false;
+            }
+
             let container_id = match require_container_id(container_id) {
                 Ok(value) => value,
                 Err(_) => {
