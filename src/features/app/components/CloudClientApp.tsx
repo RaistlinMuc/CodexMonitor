@@ -1441,7 +1441,9 @@ export function CloudClientApp() {
             onAddWorkspace={() =>
               alert("Add workspaces from the Mac app. The iOS app is read-only.")
             }
-            onCloneRepository={() => {}}
+            latestAgentRuns={[]}
+            isLoadingLatestAgents={false}
+            onSelectThread={() => {}}
           />
         ) : (
           <>
