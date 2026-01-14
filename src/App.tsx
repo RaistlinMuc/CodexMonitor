@@ -56,6 +56,7 @@ import { useResizablePanels } from "./hooks/useResizablePanels";
 import { useLayoutMode } from "./hooks/useLayoutMode";
 import { useAppSettings } from "./hooks/useAppSettings";
 import { useUpdater } from "./hooks/useUpdater";
+import { isAppleMobile } from "./utils/platform";
 import type { AccessMode, QueuedMessage, WorkspaceInfo } from "./types";
 
 function useWindowLabel() {
@@ -122,7 +123,8 @@ function MainApp() {
     clearDebugEntries,
   } = useDebugLog();
 
-  const updater = useUpdater({ onDebug: addDebugEntry });
+  const updaterEnabled = !isAppleMobile();
+  const updater = useUpdater({ enabled: updaterEnabled, onDebug: addDebugEntry });
 
   const { settings: appSettings, saveSettings, doctor } = useAppSettings();
 
@@ -669,11 +671,13 @@ function MainApp() {
       />
 
       <section className="main">
-        <UpdateToast
-          state={updater.state}
-          onUpdate={updater.startUpdate}
-          onDismiss={updater.dismiss}
-        />
+        {updaterEnabled && (
+          <UpdateToast
+            state={updater.state}
+            onUpdate={updater.startUpdate}
+            onDismiss={updater.dismiss}
+          />
+        )}
         {showHome && (
           <Home
             onOpenProject={handleAddWorkspace}
@@ -803,11 +807,13 @@ function MainApp() {
           workspaces={workspaces}
           onDecision={handleApprovalDecision}
         />
-        <UpdateToast
-          state={updater.state}
-          onUpdate={updater.startUpdate}
-          onDismiss={updater.dismiss}
-        />
+        {updaterEnabled && (
+          <UpdateToast
+            state={updater.state}
+            onUpdate={updater.startUpdate}
+            onDismiss={updater.dismiss}
+          />
+        )}
         {showHome && (
           <Home
             onOpenProject={handleAddWorkspace}
@@ -893,11 +899,13 @@ function MainApp() {
         workspaces={workspaces}
         onDecision={handleApprovalDecision}
       />
-      <UpdateToast
-        state={updater.state}
-        onUpdate={updater.startUpdate}
-        onDismiss={updater.dismiss}
-      />
+      {updaterEnabled && (
+        <UpdateToast
+          state={updater.state}
+          onUpdate={updater.startUpdate}
+          onDismiss={updater.dismiss}
+        />
+      )}
       {activeTab === "projects" && <div className="compact-panel">{sidebarNode}</div>}
       {activeTab === "codex" && (
         <div className="compact-panel">
