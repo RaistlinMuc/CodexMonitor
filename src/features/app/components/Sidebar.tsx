@@ -6,6 +6,7 @@ import { Menu, MenuItem } from "@tauri-apps/api/menu";
 import { LogicalPosition } from "@tauri-apps/api/dpi";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { formatRelativeTime } from "../../../utils/time";
+import { isAppleMobile } from "../../../utils/platform";
 
 type SidebarProps = {
   workspaces: WorkspaceInfo[];
@@ -63,6 +64,7 @@ export function Sidebar({
   onDeleteWorktree,
   onLoadOlderThreads,
 }: SidebarProps) {
+  const allowContextMenus = !isAppleMobile();
   const [expandedWorkspaces, setExpandedWorkspaces] = useState(
     new Set<string>(),
   );
@@ -121,6 +123,9 @@ export function Sidebar({
     workspaceId: string,
     threadId: string,
   ) {
+    if (!allowContextMenus) {
+      return;
+    }
     event.preventDefault();
     event.stopPropagation();
     const archiveItem = await MenuItem.new({
@@ -143,6 +148,9 @@ export function Sidebar({
     event: React.MouseEvent,
     workspaceId: string,
   ) {
+    if (!allowContextMenus) {
+      return;
+    }
     event.preventDefault();
     event.stopPropagation();
     const deleteItem = await MenuItem.new({
@@ -159,6 +167,9 @@ export function Sidebar({
     event: React.MouseEvent,
     workspaceId: string,
   ) {
+    if (!allowContextMenus) {
+      return;
+    }
     event.preventDefault();
     event.stopPropagation();
     const deleteItem = await MenuItem.new({
@@ -306,7 +317,11 @@ export function Sidebar({
                   role="button"
                   tabIndex={0}
                   onClick={() => onSelectWorkspace(entry.id)}
-                  onContextMenu={(event) => showWorkspaceMenu(event, entry.id)}
+                  onContextMenu={
+                    allowContextMenus
+                      ? (event) => showWorkspaceMenu(event, entry.id)
+                      : undefined
+                  }
                   onKeyDown={(event) => {
                     if (event.key === "Enter" || event.key === " ") {
                       event.preventDefault();
@@ -448,8 +463,10 @@ export function Sidebar({
                               role="button"
                               tabIndex={0}
                               onClick={() => onSelectWorkspace(worktree.id)}
-                              onContextMenu={(event) =>
-                                showWorktreeMenu(event, worktree.id)
+                              onContextMenu={
+                                allowContextMenus
+                                  ? (event) => showWorktreeMenu(event, worktree.id)
+                                  : undefined
                               }
                               onKeyDown={(event) => {
                                 if (event.key === "Enter" || event.key === " ") {
@@ -511,8 +528,11 @@ export function Sidebar({
                                     onClick={() =>
                                       onSelectThread(worktree.id, thread.id)
                                     }
-                                    onContextMenu={(event) =>
-                                      showThreadMenu(event, worktree.id, thread.id)
+                                    onContextMenu={
+                                      allowContextMenus
+                                        ? (event) =>
+                                            showThreadMenu(event, worktree.id, thread.id)
+                                        : undefined
                                     }
                                     role="button"
                                     tabIndex={0}
@@ -628,8 +648,10 @@ export function Sidebar({
                             : ""
                         }`}
                         onClick={() => onSelectThread(entry.id, thread.id)}
-                        onContextMenu={(event) =>
-                          showThreadMenu(event, entry.id, thread.id)
+                        onContextMenu={
+                          allowContextMenus
+                            ? (event) => showThreadMenu(event, entry.id, thread.id)
+                            : undefined
                         }
                         role="button"
                         tabIndex={0}
