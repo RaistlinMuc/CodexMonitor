@@ -61,6 +61,7 @@ import { useWindowFocusState } from "./features/layout/hooks/useWindowFocusState
 import { useCopyThread } from "./features/threads/hooks/useCopyThread";
 import { usePanelVisibility } from "./features/layout/hooks/usePanelVisibility";
 import { useTerminalController } from "./features/terminal/hooks/useTerminalController";
+import { cloudkitStatus, cloudkitTest } from "./services/tauri";
 import { playNotificationSound } from "./utils/notificationSounds";
 import type { AccessMode, DiffLineReference, QueuedMessage, WorkspaceInfo } from "./types";
 
@@ -959,6 +960,8 @@ function MainApp() {
             await queueSaveSettings(next);
           }}
           onRunDoctor={doctor}
+          onCloudKitStatus={cloudkitStatus}
+          onCloudKitTest={cloudkitTest}
           onUpdateWorkspaceCodexBin={async (id, codexBin) => {
             await updateWorkspaceCodexBin(id, codexBin);
           }}

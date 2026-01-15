@@ -5,6 +5,8 @@ import { clampUiScale, UI_SCALE_DEFAULT } from "../../../utils/uiScale";
 
 const defaultSettings: AppSettings = {
   codexBin: null,
+  cloudKitEnabled: false,
+  cloudKitContainerId: null,
   defaultAccessMode: "current",
   uiScale: UI_SCALE_DEFAULT,
   notificationSoundsEnabled: true,
