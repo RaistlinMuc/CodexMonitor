@@ -25,3 +25,9 @@ dist-ssr
 /release-artifacts
 CodexMonitor.zip
 .codex-worktrees/
+codexmonitorMac.provisionprofile
+screen-ipad-size.png
+screen-ipad-size-small.png
+src-tauri/gen/
+.run/
+ilass-private/
