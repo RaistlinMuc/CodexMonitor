@@ -16,7 +16,7 @@ if [[ -z "${UDID}" ]]; then
   exit 1
 fi
 
-OUT_DIR="${ROOT_DIR}/.run/ios"
+OUT_DIR="${ROOT_DIR}/ilass-private/run/ios"
 mkdir -p "${OUT_DIR}"
 
 export VITE_E2E=1

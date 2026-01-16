@@ -9,7 +9,7 @@ CONTAINER_ID="${CODEXMONITOR_CLOUDKIT_CONTAINER_ID:-iCloud.com.ilass.codexmonito
 BUNDLE_ID="${BUNDLE_ID:-com.ilass.codexmonitor}"
 APP_BIN="${APP_BIN:-${ROOT_DIR}/src-tauri/target/release/bundle/macos/CodexMonitor.app/Contents/MacOS/codex-monitor}"
 
-OUT_DIR="${ROOT_DIR}/.run/ios/device"
+OUT_DIR="${ROOT_DIR}/ilass-private/run/ios/device"
 mkdir -p "${OUT_DIR}"
 
 export VITE_E2E=1

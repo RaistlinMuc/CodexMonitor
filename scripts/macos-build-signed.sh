@@ -4,9 +4,19 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 APP_PATH="$ROOT_DIR/src-tauri/target/release/bundle/macos/CodexMonitor.app"
-PROFILE_PATH="${CODEXMONITOR_PROVISIONPROFILE:-$ROOT_DIR/codexmonitorMac.provisionprofile}"
+DEFAULT_PROFILE_PATH="$ROOT_DIR/ilass-private/run/codexmonitorMac.provisionprofile"
+if [[ ! -f "$DEFAULT_PROFILE_PATH" ]]; then
+  DEFAULT_PROFILE_PATH="$ROOT_DIR/codexmonitorMac.provisionprofile"
+fi
+PROFILE_PATH="${CODEXMONITOR_PROVISIONPROFILE:-$DEFAULT_PROFILE_PATH}"
 ENTITLEMENTS_PATH="${CODEXMONITOR_ENTITLEMENTS:-$ROOT_DIR/src-tauri/entitlements.macos.plist}"
-SIGNING_IDENTITY="${CODEXMONITOR_CODESIGN_IDENTITY:-Apple Development: Peter Vogel (HUDS4L39Y8)}"
+SIGNING_IDENTITY="${CODEXMONITOR_CODESIGN_IDENTITY:-}"
+
+if [[ -z "$SIGNING_IDENTITY" ]]; then
+  echo "[macos-build-signed] error: CODEXMONITOR_CODESIGN_IDENTITY is not set." >&2
+  echo "[macos-build-signed] tip: set it to a matching identity from: security find-identity -p codesigning -v" >&2
+  exit 1
+fi
 
 echo "[macos-build-signed] building…"
 cd "$ROOT_DIR"
