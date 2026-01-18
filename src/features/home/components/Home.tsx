@@ -12,6 +12,10 @@ type LatestAgentRun = {
 type HomeProps = {
   onOpenProject: () => void;
   onAddWorkspace: () => void;
+  openProjectLabel?: string;
+  addWorkspaceLabel?: string;
+  noticeTitle?: string | null;
+  noticeSubtitle?: string | null;
   latestAgentRuns: LatestAgentRun[];
   isLoadingLatestAgents: boolean;
   onSelectThread: (workspaceId: string, threadId: string) => void;
@@ -20,6 +24,10 @@ type HomeProps = {
 export function Home({
   onOpenProject,
   onAddWorkspace,
+  openProjectLabel,
+  addWorkspaceLabel,
+  noticeTitle,
+  noticeSubtitle,
   latestAgentRuns,
   isLoadingLatestAgents,
   onSelectThread,
@@ -32,6 +40,14 @@ export function Home({
           Orchestrate agents across your local projects.
         </div>
       </div>
+      {noticeTitle ? (
+        <div className="home-notice" role="status">
+          <div className="home-notice-title">{noticeTitle}</div>
+          {noticeSubtitle ? (
+            <div className="home-notice-subtitle">{noticeSubtitle}</div>
+          ) : null}
+        </div>
+      ) : null}
       <div className="home-latest">
         <div className="home-latest-header">
           <div className="home-latest-label">Latest agents</div>
@@ -91,7 +107,7 @@ export function Home({
           <span className="home-icon" aria-hidden>
             ⌘
           </span>
-          Open Project
+          {openProjectLabel ?? "Open Project"}
         </button>
         <button
           className="home-button secondary"
@@ -101,7 +117,7 @@ export function Home({
           <span className="home-icon" aria-hidden>
             +
           </span>
-          Add Workspace
+          {addWorkspaceLabel ?? "Add Workspace"}
         </button>
       </div>
     </div>

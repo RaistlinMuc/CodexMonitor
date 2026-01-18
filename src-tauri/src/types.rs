@@ -160,6 +160,20 @@ pub(crate) struct WorkspaceSettings {
     pub(crate) sort_order: Option<u32>,
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub(crate) enum CloudProvider {
+    Local,
+    Nats,
+    Cloudkit,
+}
+
+impl Default for CloudProvider {
+    fn default() -> Self {
+        CloudProvider::Nats
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub(crate) struct AppSettings {
     #[serde(default, rename = "codexBin")]
@@ -192,6 +206,24 @@ pub(crate) struct AppSettings {
         rename = "dictationHoldKey"
     )]
     pub(crate) dictation_hold_key: String,
+
+    #[serde(default = "default_runner_id", rename = "runnerId")]
+    pub(crate) runner_id: String,
+    #[serde(default, rename = "cloudProvider")]
+    pub(crate) cloud_provider: CloudProvider,
+    #[serde(default = "default_nats_url", rename = "natsUrl")]
+    pub(crate) nats_url: Option<String>,
+    #[serde(default = "default_cloudkit_container_id", rename = "cloudKitContainerId")]
+    pub(crate) cloudkit_container_id: Option<String>,
+
+    #[serde(default, rename = "telegramEnabled")]
+    pub(crate) telegram_enabled: bool,
+    #[serde(default, rename = "telegramBotToken")]
+    pub(crate) telegram_bot_token: Option<String>,
+    #[serde(default, rename = "telegramAllowedUserIds")]
+    pub(crate) telegram_allowed_user_ids: Option<Vec<i64>>,
+    #[serde(default, rename = "telegramDefaultChatId")]
+    pub(crate) telegram_default_chat_id: Option<i64>,
 }
 
 fn default_access_mode() -> String {
@@ -222,6 +254,19 @@ fn default_dictation_hold_key() -> String {
     "alt".to_string()
 }
 
+fn default_runner_id() -> String {
+    // Filled on first load by state::AppState to ensure stability.
+    "unknown".to_string()
+}
+
+fn default_nats_url() -> Option<String> {
+    Some("nats://cd742330aa503008b7017f247b1793478ffaecc8e9aec7b1134679327a62ae64@server1.nats.ilass.com:4222".to_string())
+}
+
+fn default_cloudkit_container_id() -> Option<String> {
+    Some("iCloud.com.ilass.codexmonitor".to_string())
+}
+
 impl Default for AppSettings {
     fn default() -> Self {
         Self {
@@ -234,13 +279,21 @@ impl Default for AppSettings {
             dictation_model_id: default_dictation_model_id(),
             dictation_preferred_language: None,
             dictation_hold_key: default_dictation_hold_key(),
+            runner_id: default_runner_id(),
+            cloud_provider: CloudProvider::default(),
+            nats_url: default_nats_url(),
+            cloudkit_container_id: default_cloudkit_container_id(),
+            telegram_enabled: false,
+            telegram_bot_token: None,
+            telegram_allowed_user_ids: None,
+            telegram_default_chat_id: None,
         }
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{AppSettings, WorkspaceEntry, WorkspaceKind};
+    use super::{AppSettings, CloudProvider, WorkspaceEntry, WorkspaceKind};
 
     #[test]
     fn app_settings_defaults_from_empty_json() {
@@ -254,6 +307,11 @@ mod tests {
         assert_eq!(settings.dictation_model_id, "base");
         assert!(settings.dictation_preferred_language.is_none());
         assert_eq!(settings.dictation_hold_key, "alt");
+        assert_eq!(settings.runner_id, "unknown");
+        assert!(matches!(settings.cloud_provider, CloudProvider::Nats));
+        assert!(settings.nats_url.is_some());
+        assert!(settings.cloudkit_container_id.is_some());
+        assert!(!settings.telegram_enabled);
     }
 
     #[test]

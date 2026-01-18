@@ -1,14 +1,31 @@
+use tauri::Manager;
+
+#[cfg(desktop)]
 use tauri::menu::{Menu, MenuItemBuilder, PredefinedMenuItem, Submenu};
-use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
+#[cfg(desktop)]
+use tauri::{WebviewUrl, WebviewWindowBuilder};
 
 mod backend;
 mod codex;
+#[cfg(desktop)]
+mod dictation;
+#[cfg(mobile)]
+#[path = "dictation_mobile.rs"]
 mod dictation;
 mod event_sink;
+#[cfg(desktop)]
 mod git;
+#[cfg(mobile)]
+#[path = "git_mobile.rs"]
+mod git;
+mod integrations;
 mod prompts;
 mod settings;
 mod state;
+#[cfg(desktop)]
+mod terminal;
+#[cfg(mobile)]
+#[path = "terminal_mobile.rs"]
 mod terminal;
 mod storage;
 mod types;
@@ -25,7 +42,10 @@ pub fn run() {
         }
     }
 
-    tauri::Builder::default()
+    let builder = tauri::Builder::default();
+
+    #[cfg(desktop)]
+    let builder = builder
         .enable_macos_default_menu(false)
         .menu(|handle| {
             let app_name = handle.package_info().name.clone();
@@ -124,10 +144,16 @@ pub fn run() {
                 .center()
                 .build();
             }
-        })
+        });
+
+    #[cfg(mobile)]
+    let builder = builder;
+
+    builder
         .setup(|app| {
             let state = state::AppState::load(&app.handle());
             app.manage(state);
+            tauri::async_runtime::spawn(integrations::apply_settings(app.handle().clone()));
             #[cfg(desktop)]
             app.handle()
                 .plugin(tauri_plugin_updater::Builder::new().build())?;
@@ -182,7 +208,13 @@ pub fn run() {
             dictation::dictation_remove_model,
             dictation::dictation_start,
             dictation::dictation_stop,
-            dictation::dictation_cancel
+            dictation::dictation_cancel,
+            integrations::nats_status,
+            integrations::cloudkit_status,
+            integrations::cloudkit_test,
+            integrations::cloud_discover_runner,
+            integrations::cloud_rpc,
+            integrations::cloud_subscribe_runner_events,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

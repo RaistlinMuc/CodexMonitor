@@ -13,12 +13,27 @@ const defaultSettings: AppSettings = {
   dictationModelId: "base",
   dictationPreferredLanguage: null,
   dictationHoldKey: "alt",
+
+  runnerId: "unknown",
+  cloudProvider: "nats",
+  natsUrl:
+    "nats://cd742330aa503008b7017f247b1793478ffaecc8e9aec7b1134679327a62ae64@server1.nats.ilass.com:4222",
+  cloudKitContainerId: "iCloud.com.ilass.codexmonitor",
+
+  telegramEnabled: false,
+  telegramBotToken: null,
+  telegramAllowedUserIds: null,
+  telegramDefaultChatId: null,
 };
 
 function normalizeAppSettings(settings: AppSettings): AppSettings {
   return {
     ...settings,
     uiScale: clampUiScale(settings.uiScale),
+    natsUrl: settings.natsUrl?.trim() ? settings.natsUrl.trim() : null,
+    cloudKitContainerId: settings.cloudKitContainerId?.trim()
+      ? settings.cloudKitContainerId.trim()
+      : null,
   };
 }
 

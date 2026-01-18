@@ -62,6 +62,8 @@ export type ReviewTarget =
 
 export type AccessMode = "read-only" | "current" | "full-access";
 
+export type CloudProvider = "local" | "nats" | "cloudkit";
+
 export type AppSettings = {
   codexBin: string | null;
   defaultAccessMode: AccessMode;
@@ -72,6 +74,16 @@ export type AppSettings = {
   dictationModelId: string;
   dictationPreferredLanguage: string | null;
   dictationHoldKey: string | null;
+
+  runnerId: string;
+  cloudProvider: CloudProvider;
+  natsUrl: string | null;
+  cloudKitContainerId: string | null;
+
+  telegramEnabled: boolean;
+  telegramBotToken: string | null;
+  telegramAllowedUserIds: number[] | null;
+  telegramDefaultChatId: number | null;
 };
 
 export type CodexDoctorResult = {
@@ -84,6 +96,22 @@ export type CodexDoctorResult = {
   nodeOk: boolean;
   nodeVersion: string | null;
   nodeDetails: string | null;
+};
+
+export type NatsStatus = {
+  ok: boolean;
+  server: string | null;
+  error: string | null;
+};
+
+export type CloudKitStatus = {
+  available: boolean;
+  status: string;
+};
+
+export type CloudKitTestResult = {
+  recordName: string;
+  durationMs: number;
 };
 
 export type ApprovalRequest = {

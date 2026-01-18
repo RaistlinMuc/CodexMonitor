@@ -189,6 +189,7 @@ export function ComposerInput({
           </button>
           <textarea
             ref={textareaRef}
+            aria-label="Composer message"
             placeholder={
               disabled
                 ? "Review in progress. Chat will re-enable when it completes."

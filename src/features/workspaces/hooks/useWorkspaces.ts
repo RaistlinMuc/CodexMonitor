@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { DebugEntry } from "../../../types";
 import type { WorkspaceInfo, WorkspaceSettings } from "../../../types";
 import { ask } from "@tauri-apps/plugin-dialog";
+import { isAppleMobileDevice } from "../../../utils/platform";
 import {
   addWorkspace as addWorkspaceService,
   addWorktree as addWorktreeService,
@@ -47,6 +48,16 @@ export function useWorkspaces(options: UseWorkspacesOptions = {}) {
   useEffect(() => {
     void refreshWorkspaces();
   }, [refreshWorkspaces]);
+
+  useEffect(() => {
+    if (!isAppleMobileDevice() || workspaces.length > 0) {
+      return;
+    }
+    const handle = window.setInterval(() => {
+      void refreshWorkspaces();
+    }, 4000);
+    return () => window.clearInterval(handle);
+  }, [refreshWorkspaces, workspaces.length]);
 
   const activeWorkspace = useMemo(
     () => workspaces.find((entry) => entry.id === activeWorkspaceId) ?? null,
