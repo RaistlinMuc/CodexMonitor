@@ -29,10 +29,9 @@ const defaultSettings: AppSettings = {
   workspaceGroups: [],
 
   runnerId: "unknown",
-  cloudProvider: "nats",
-  natsUrl:
-    "nats://server1.nats.ilass.com:4222",
-  cloudKitContainerId: "iCloud.com.ilass.codexmonitor",
+  cloudProvider: "local",
+  natsUrl: null,
+  cloudKitContainerId: null,
 
   telegramEnabled: false,
   telegramBotToken: null,

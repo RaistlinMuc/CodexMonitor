@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use tauri::{AppHandle, Manager};
@@ -520,7 +522,8 @@ async fn handle_rpc_inner(app: &AppHandle, req: &RpcRequest) -> Result<Value, St
                 .and_then(|v| v.as_str())
                 .unwrap_or_default()
                 .to_string();
-            let prompts = crate::prompts::prompts_list(workspace_id).await?;
+            let state = app.state::<AppState>();
+            let prompts = crate::prompts::prompts_list(state, workspace_id).await?;
             serde_json::to_value(prompts).map_err(|e| e.to_string())
         }
         "list_workspace_files" => {

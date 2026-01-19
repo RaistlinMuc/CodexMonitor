@@ -334,9 +334,9 @@ function MainApp() {
   const { status: gitStatus, refresh: refreshGitStatus } =
     useGitStatus(activeWorkspace);
   const gitStatusRefreshTimeoutRef = useRef<number | null>(null);
-  const activeWorkspaceIdRef = useRef<string | null>(activeWorkspace?.id ?? null);
+  const gitStatusWorkspaceIdRef = useRef<string | null>(activeWorkspace?.id ?? null);
   useEffect(() => {
-    activeWorkspaceIdRef.current = activeWorkspace?.id ?? null;
+    gitStatusWorkspaceIdRef.current = activeWorkspace?.id ?? null;
   }, [activeWorkspace?.id]);
   useEffect(() => {
     return () => {
@@ -346,7 +346,7 @@ function MainApp() {
     };
   }, []);
   const queueGitStatusRefresh = useCallback(() => {
-    const workspaceId = activeWorkspaceIdRef.current;
+    const workspaceId = gitStatusWorkspaceIdRef.current;
     if (!workspaceId) {
       return;
     }
@@ -355,7 +355,7 @@ function MainApp() {
     }
     gitStatusRefreshTimeoutRef.current = window.setTimeout(() => {
       gitStatusRefreshTimeoutRef.current = null;
-      if (activeWorkspaceIdRef.current !== workspaceId) {
+      if (gitStatusWorkspaceIdRef.current !== workspaceId) {
         return;
       }
       refreshGitStatus();

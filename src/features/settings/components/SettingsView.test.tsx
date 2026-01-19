@@ -39,6 +39,14 @@ const baseSettings: AppSettings = {
   dictationPreferredLanguage: null,
   dictationHoldKey: null,
   workspaceGroups: [],
+  runnerId: "unknown",
+  cloudProvider: "local",
+  natsUrl: null,
+  cloudKitContainerId: null,
+  telegramEnabled: false,
+  telegramBotToken: null,
+  telegramAllowedUserIds: null,
+  telegramDefaultChatId: null,
 };
 
 const createDoctorResult = () => ({
@@ -82,6 +90,9 @@ const renderDisplaySection = (
     appSettings: { ...baseSettings, ...options.appSettings },
     onUpdateAppSettings,
     onRunDoctor: vi.fn().mockResolvedValue(createDoctorResult()),
+    onNatsStatus: vi.fn().mockResolvedValue({ ok: false, server: null, error: null }),
+    onCloudKitStatus: vi.fn().mockResolvedValue({ available: false, status: "unavailable" }),
+    onCloudKitTest: vi.fn().mockResolvedValue({ recordName: "test", durationMs: 0 }),
     onUpdateWorkspaceCodexBin: vi.fn().mockResolvedValue(undefined),
     scaleShortcutTitle: "Scale shortcut",
     scaleShortcutText: "Use Command +/-",
