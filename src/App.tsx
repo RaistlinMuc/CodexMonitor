@@ -96,6 +96,8 @@ import {
   cloudkitStatus,
   cloudkitTest,
   natsStatus,
+  telegramBotStatus,
+  telegramRegisterLink,
   pickWorkspacePath,
 } from "./services/tauri";
 import { playNotificationSound } from "./utils/notificationSounds";
@@ -115,8 +117,8 @@ function MainApp() {
     doctor,
     isLoading: appSettingsLoading
   } = useAppSettings();
-  useThemePreference(appSettings.theme);
   const isMobile = isAppleMobileDevice();
+  useThemePreference(appSettings.theme);
   const dictationModel = useDictationModel(appSettings.dictationModelId);
   const {
     state: dictationState,
@@ -1458,7 +1460,7 @@ function MainApp() {
   }${!isCompact && sidebarCollapsed ? " sidebar-collapsed" : ""}${
     !isCompact && rightPanelCollapsed ? " right-panel-collapsed" : ""
   }${isDefaultScale ? " ui-scale-default" : ""}${
-    isMobile ? " force-dark" : ""
+    isMobile ? " mobile" : ""
   }`;
   const showRemoteRunnerNotice = isRemoteClient && !remoteRunnerId;
   const {
@@ -1945,6 +1947,8 @@ function MainApp() {
           onNatsStatus={natsStatus}
           onCloudKitStatus={cloudkitStatus}
           onCloudKitTest={cloudkitTest}
+          onTelegramBotStatus={telegramBotStatus}
+          onTelegramRegisterLink={telegramRegisterLink}
           onUpdateWorkspaceCodexBin={async (id, codexBin) => {
             await updateWorkspaceCodexBin(id, codexBin);
           }}

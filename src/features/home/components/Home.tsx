@@ -1,5 +1,6 @@
 import { RefreshCw } from "lucide-react";
 import type { LocalUsageSnapshot } from "../../../types";
+import { isAppleMobileDevice } from "../../../utils/platform";
 import { formatRelativeTime } from "../../../utils/time";
 
 type LatestAgentRun = {
@@ -99,6 +100,7 @@ export function Home({
     : null;
   const showUsageSkeleton = isLoadingLocalUsage && !localUsageSnapshot;
   const showUsageEmpty = !isLoadingLocalUsage && !localUsageSnapshot;
+  const showHomeActions = !isAppleMobileDevice();
 
   return (
     <div className="home">
@@ -171,28 +173,30 @@ export function Home({
           </div>
         )}
       </div>
-      <div className="home-actions">
-        <button
-          className="home-button primary"
-          onClick={onOpenProject}
-          data-tauri-drag-region="false"
-        >
-          <span className="home-icon" aria-hidden>
-            ⌘
-          </span>
-          {openProjectLabel ?? "Open Project"}
-        </button>
-        <button
-          className="home-button secondary"
-          onClick={onAddWorkspace}
-          data-tauri-drag-region="false"
-        >
-          <span className="home-icon" aria-hidden>
-            +
-          </span>
-          {addWorkspaceLabel ?? "Add Workspace"}
-        </button>
-      </div>
+      {showHomeActions ? (
+        <div className="home-actions">
+          <button
+            className="home-button primary"
+            onClick={onOpenProject}
+            data-tauri-drag-region="false"
+          >
+            <span className="home-icon" aria-hidden>
+              ⌘
+            </span>
+            {openProjectLabel ?? "Open Project"}
+          </button>
+          <button
+            className="home-button secondary"
+            onClick={onAddWorkspace}
+            data-tauri-drag-region="false"
+          >
+            <span className="home-icon" aria-hidden>
+              +
+            </span>
+            {addWorkspaceLabel ?? "Add Workspace"}
+          </button>
+        </div>
+      ) : null}
       <div className="home-usage">
         <div className="home-section-header">
           <div className="home-section-title">Usage snapshot</div>
